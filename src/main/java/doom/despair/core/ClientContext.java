@@ -2,5 +2,10 @@ package doom.despair.core;
 
 import doom.despair.Player;
 
-public record ClientContext(Player player) {
+public class ClientContext {
+    private final Player player;
+    public Player getPlayer() { return player; }
+    public ClientContext(Player player) {
+        this.player = player;
+    }
 }

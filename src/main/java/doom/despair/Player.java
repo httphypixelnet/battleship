@@ -1,17 +1,48 @@
 package doom.despair;
 
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.*;
 
 public class Player {
-    public String displayName;
-    public UUID uuid;
-    public int shipsRemaining;
-    public HashMap<UUID, Ship> ships;
+
+    private final String displayName;
+    private final UUID uuid;
+    final List<Ship> ships;
+
     public Player(String displayName) {
         this.displayName = displayName;
         this.uuid = UUID.randomUUID();
-        this.shipsRemaining = 5;
-        this.ships = new HashMap<>(shipsRemaining);
+        this.ships = new ArrayList<>();
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public UUID getUuid() {
+        return uuid;
+    }
+
+    public void addShip(Ship ship) {
+        ships.add(ship);
+    }
+
+    public int getShipsRemaining() {
+        return ships.size();
+    }
+
+    public boolean hasLost() {
+        return getShipsRemaining() == 0;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Player other)) return false;
+        return uuid.equals(other.uuid);
+    }
+
+    @Override
+    public int hashCode() {
+        return uuid.hashCode();
     }
 }

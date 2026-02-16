@@ -27,7 +27,7 @@ class GameEventTest {
 
         String json = event.serialize();
         TestClientEvent restored = GameEvent.deserialize(json, TestClientEvent.class);
-
+        System.out.println(json);
         assertNotNull(restored);
         assertEquals("hello", restored.message);
         assertEquals(42, restored.value);

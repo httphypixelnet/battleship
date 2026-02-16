@@ -104,7 +104,7 @@ public class BattleshipServer {
             return;
         }
 
-        ServerContext ctx = new ServerContext(this);
+        ServerContext ctx = new ServerContext(this, ev.player);
         ev.handle(ctx);
     }
 }

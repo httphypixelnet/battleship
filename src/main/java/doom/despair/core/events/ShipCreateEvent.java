@@ -1,15 +1,19 @@
 package doom.despair.core.events;
 
-import doom.despair.core.ClientContext;
-import doom.despair.core.ClientGameEvent;
-import doom.despair.core.ServerContext;
-import doom.despair.core.ServerGameEvent;
-
+import doom.despair.Ship;
+import doom.despair.core.*;
+import doom.despair.server.Board;
+import doom.despair.ships.ShipType;
 
 public class ShipCreateEvent {
+    public static class ShipCreateContext {
+        public ShipType type;
+        public
+    }
     public static class ServerShipCreateEvent extends ServerGameEvent {
         @Override
-        public void handle(ServerContext context) {
+        public void handle(ServerContext ctx) {
+            Board playerBoard = ctx.getServer().getBoardForPlayer(ctx.getPlayer());
 
         }
     }

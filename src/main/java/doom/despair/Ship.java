@@ -1,12 +1,19 @@
 package doom.despair;
 
 import doom.despair.core.PlayerManagedObject;
-import doom.despair.server.Board;
 
-import java.util.List;
+import java.util.UUID;
 
 public abstract class Ship extends PlayerManagedObject {
-    private List<Board.Coordinate> coordinates;
-    public abstract List<Board.Coordinate> getCoordinates();
-    public Ship(List<Board.Coordinate> coords) { coordinates = coords; }
+    private UUID uuid;
+    private boolean sunk = false;
+    private int health;
+    public Ship(int size) {
+        this.health = size;
+    }
+    public void tick() {
+        if (health == 0) {
+            sunk = true;
+        }
+    }
 }

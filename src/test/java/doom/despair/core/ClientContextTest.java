@@ -11,6 +11,6 @@ class ClientContextTest {
         Player player = new Player("Bob");
         ClientContext context = new ClientContext(player);
 
-        assertSame(player, context.player());
+        assertSame(player, context.getPlayer());
     }
 }

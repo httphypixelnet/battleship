@@ -10,8 +10,7 @@ public class Board {
     private final Map<Coordinate, Ship> grid = new HashMap<>();
     public Ship getShipAt(Coordinate coord) { return grid.get(coord); }
     public void placeShip(Ship ship) {
-        for (Coordinate coord : ship.getCoordinates()) {
-            grid.put(coord, ship);
-        }
+
     }
+
 }

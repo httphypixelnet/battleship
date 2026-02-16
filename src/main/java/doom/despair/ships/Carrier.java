@@ -2,8 +2,8 @@ package doom.despair.ships;
 
 import doom.despair.Ship;
 
-public class Piquad extends Ship {
-    public Piquad() {
+public class Carrier extends Ship {
+    public Carrier() {
         super(4);
     }
 }

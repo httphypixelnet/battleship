@@ -1,5 +1,6 @@
 package doom.despair;
 
+import doom.despair.ships.Carrier;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,15 +10,14 @@ class PlayerTest {
     void initializesDefaults() {
         Player player = new Player("Alice");
 
-        assertEquals("Alice", player.displayName);
-        assertNotNull(player.uuid);
-        assertEquals(5, player.shipsRemaining);
+        assertEquals("Alice", player.getDisplayName());
+        assertNotNull(player.getUuid());
+        player.addShip(new Carrier());
+        assertEquals(1, player.getShipsRemaining());
         assertNotNull(player.ships);
-        assertTrue(player.ships.isEmpty());
-        Ship s = new Ship();
+        Carrier s = new Carrier();
 
-        player.ships.put(s.getUUID(), s);
-        assertEquals(1, player.ships.size());
-        assertEquals(player.ships.get(s.getUUID()), s);
+        player.ships.add(s);
+        assertEquals(2, player.ships.size());
     }
 }
