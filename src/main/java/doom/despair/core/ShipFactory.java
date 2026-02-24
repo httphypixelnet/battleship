@@ -6,15 +6,27 @@ import doom.despair.ships.Carrier;
 import doom.despair.ships.ShipType;
 
 public class ShipFactory {
-    public static <T extends Ship> T createShip(ShipType type) {
+    public static Ship createShip(ShipType type) {
         try {
-            Ship ship;
             switch (type) {
                 case AIRCRAFT_CARRIER: {
-                    ship = new Carrier();
+                    return new Carrier();
                 }
                 default: {
-                    ship = null;
+                    throw new Exception("Invalid ship type");
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public static  Class<? extends Ship> get(ShipType type) {
+        try {
+            switch (type) {
+                case AIRCRAFT_CARRIER: {
+                    return Carrier.class;
+                }
+                default: {
                     throw new Exception("Invalid ship type");
                 }
             }
