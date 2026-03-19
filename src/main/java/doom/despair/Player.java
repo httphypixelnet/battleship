@@ -36,7 +36,7 @@ public class Player {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
+        if (super.equals(obj)) return true;
         if (!(obj instanceof Player other)) return false;
         return uuid.equals(other.uuid);
     }
