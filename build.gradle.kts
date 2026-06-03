@@ -20,6 +20,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.13.2")
     implementation("org.jmdns:jmdns:3.6.3")
     implementation(kotlin("stdlib-jdk8"))
+    implementation("org.java-websocket:Java-WebSocket:1.6.0")
     implementation("org.slf4j:slf4j-simple:2.0.17")
 }
 javafx {

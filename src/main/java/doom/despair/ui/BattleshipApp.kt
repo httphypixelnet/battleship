@@ -136,6 +136,8 @@ class BattleshipApp : Application() {
             }
         }
 
+        var selectedGameId: String? = null
+
         joinButton.setOnAction {
             val playerName = nameField.text.ifBlank { "Player" }
             val serverAddress = addressField.text.ifBlank { "127.0.0.1:25567" }
@@ -143,7 +145,8 @@ class BattleshipApp : Application() {
                 userProfile = userProfile.copy(name = playerName, lastServerAddress = serverAddress)
                 profileStore.save(userProfile)
                 val client = Client(Player(playerName))
-                val remote = client.connect(serverAddress)
+                val remote = client.connect(serverAddress, selectedGameId)
+                selectedGameId = null
                 val joined = remote.joinGame(playerName)
                 val playerId = joined.playerId ?: throw IllegalStateException("Server did not return player id")
                 session = SessionContext(client, remote, playerId, playerName)
@@ -161,6 +164,7 @@ class BattleshipApp : Application() {
                 return@setOnAction
             }
             addressField.text = selected.address
+            selectedGameId = selected.gameId
             joinButton.fire()
         }
         refreshLocalGamesButton.setOnAction {

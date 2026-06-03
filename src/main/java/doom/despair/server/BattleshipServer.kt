@@ -19,8 +19,7 @@ import doom.despair.core.ServerGameEvent
 import doom.despair.core.events.ValidEvents
 import doom.despair.ships.ShipType
 import java.io.IOException
-import java.net.ServerSocket
-import java.net.Socket
+import java.net.InetSocketAddress
 import java.util.Collections
 import java.util.LinkedHashSet
 import java.util.UUID
@@ -28,6 +27,12 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import org.java_websocket.WebSocket
+import org.java_websocket.client.WebSocketClient
+import org.java_websocket.handshake.ClientHandshake
+import org.java_websocket.handshake.ServerHandshake
+import org.java_websocket.server.WebSocketServer
+import java.net.URI
 import kotlin.concurrent.thread
 import kotlin.concurrent.Volatile
 
@@ -44,6 +49,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
     )
 
     private data class GameSession(
+        val gameId: String = UUID.randomUUID().toString(),
         val host: SessionPlayer,
         var guest: SessionPlayer? = null,
         var currentTurnPlayerId: String? = null,
@@ -60,7 +66,8 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
     private val workerPool: ExecutorService = Executors.newCachedThreadPool()
 
     @Volatile
-    private var serverSocket: ServerSocket? = null
+    private var webSocketServer: WebSocketServer? = null
+    private var lobbyControlClient: WebSocketClient? = null
 
     fun queueEvent(event: ServerGameEvent) {
         eventQueue.add(event)
@@ -89,16 +96,29 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
         if (running.get()) {
             return
         }
+        val server = object : WebSocketServer(InetSocketAddress(port)) {
+            override fun onOpen(conn: WebSocket, handshake: ClientHandshake) {}
+
+            override fun onClose(conn: WebSocket, code: Int, reason: String, remote: Boolean) {
+                handleConnectionClose(conn)
+            }
+
+            override fun onMessage(conn: WebSocket, message: String) {
+                handleIncomingMessage(conn, message)
+            }
+
+            override fun onError(conn: WebSocket?, ex: Exception) {}
+
+            override fun onStart() {}
+        }
+        webSocketServer = server
         try {
-            serverSocket = ServerSocket(port)
-        } catch (e: IOException) {
-            throw RuntimeException("Could not listen on port: $port", e)
+            server.start()
+        } catch (e: Exception) {
+            throw RuntimeException("Could not start WebSocket server on port $port", e)
         }
         lanAdvertiser.start()
         running.set(true)
-        thread(name = "battleship-accept-loop", isDaemon = true) {
-            acceptLoop()
-        }
         thread(name = "battleship-event-loop", isDaemon = true) {
             while (running.get()) {
                 gameLoop()
@@ -113,25 +133,13 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
             return
         }
         try {
-            serverSocket?.close()
-        } catch (_: IOException) {
+            webSocketServer?.stop(1000)
+        } catch (_: Exception) {
         }
-        serverSocket = null
+        webSocketServer = null
+        lobbyControlClient?.close()
+        lobbyControlClient = null
         lanAdvertiser.stop()
-    }
-
-    private fun acceptLoop() {
-        while (running.get()) {
-            val socket = try {
-                serverSocket?.accept()
-            } catch (_: IOException) {
-                null
-            } ?: continue
-
-            workerPool.submit {
-                ClientHandler(this, socket).handle()
-            }
-        }
     }
 
     internal fun processPacket(packet: Packet, sendToCaller: (Packet) -> Unit): Packet {
@@ -203,6 +211,19 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
         }
     }
 
+    internal fun extractPlayerIdFromRequest(packet: Packet): String? {
+        return try {
+            when (packet.type) {
+                "PLACE_SHIP" -> gson.fromJson(packet.payload, PlaceShipRequest::class.java).playerId
+                "FIRE_SHOT" -> gson.fromJson(packet.payload, FireShotRequest::class.java).playerId
+                "GET_STATE" -> gson.fromJson(packet.payload, GetStateRequest::class.java).playerId
+                else -> null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     internal fun unregisterSubscriber(playerId: String) {
         subscribers.remove(playerId)
     }
@@ -222,6 +243,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
             val host = SessionPlayer(id = playerId, name = request.playerName.ifBlank { "Host" })
             currentSession = GameSession(host = host)
             updateLanAdvertisement()
+            updateLobbyAdvertisement()
             return CreateGameResponse(ok = true, playerId = playerId)
         }
     }
@@ -238,6 +260,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
             val playerId = UUID.randomUUID().toString()
             session.guest = SessionPlayer(id = playerId, name = request.playerName.ifBlank { "Guest" })
             updateLanAdvertisement()
+            updateLobbyAdvertisement()
             return JoinGameResponse(ok = true, playerId = playerId)
         }
     }
@@ -330,7 +353,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
     private fun updateLanAdvertisement() {
         val session = currentSession
         if (session != null && session.guest == null && session.winnerPlayerId == null) {
-            lanAdvertiser.advertiseOpenGame(session.host.name)
+            lanAdvertiser.advertiseOpenGame(session.host.name, session.gameId)
         } else {
             lanAdvertiser.clearOpenGame()
         }
@@ -388,5 +411,95 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
 
         val ctx = ServerContext(this)
         ev.handle(ctx)
+    }
+
+    @Synchronized
+    private fun updateLobbyAdvertisement() {
+        val session = currentSession
+        if (session != null && session.guest == null && session.winnerPlayerId == null) {
+            if (lobbyControlClient == null || lobbyControlClient?.isOpen == false) {
+                val gameId = session.gameId
+                val hostName = session.host.name
+                val localIp = try {
+                    java.net.InetAddress.getLocalHost().hostAddress
+                } catch (_: Exception) {
+                    "127.0.0.1"
+                }
+                val lobbyHost = System.getProperty("lobby.host") ?: "localhost:25565"
+                val scheme = if (lobbyHost.startsWith("localhost") || lobbyHost.startsWith("127.0.0.1")) "ws" else "wss"
+                val lobbyUri = "$scheme://$lobbyHost/control?gameId=$gameId&hostName=$hostName&address=$localIp:$port"
+                try {
+                    val client = object : WebSocketClient(URI(lobbyUri)) {
+                        override fun onOpen(handshakedata: ServerHandshake) {}
+                        override fun onMessage(message: String) {
+                            try {
+                                val msg = gson.fromJson(message, Map::class.java)
+                                if (msg["type"] == "CONNECT_RELAY") {
+                                    val clientId = msg["clientId"] as? String ?: return
+                                    connectToRelay(gameId, clientId)
+                                }
+                            } catch (_: Exception) {}
+                        }
+                        override fun onClose(code: Int, reason: String, remote: Boolean) {}
+                        override fun onError(ex: Exception) {}
+                    }
+                    client.connect()
+                    lobbyControlClient = client
+                } catch (_: Exception) {}
+            }
+        } else {
+            lobbyControlClient?.close()
+            lobbyControlClient = null
+        }
+    }
+
+    private fun connectToRelay(gameId: String, clientId: String) {
+        val lobbyHost = System.getProperty("lobby.host") ?: "example.com:25567"
+        val scheme = if (lobbyHost.startsWith("localhost") || lobbyHost.startsWith("127.0.0.1")) "ws" else "wss"
+        val relayUri = "$scheme://$lobbyHost/relay?gameId=$gameId&role=server&clientId=$clientId"
+        try {
+            val relayClient = object : WebSocketClient(URI(relayUri)) {
+                override fun onOpen(handshakedata: ServerHandshake) {}
+                override fun onMessage(message: String) {
+                    handleIncomingMessage(this, message)
+                }
+                override fun onClose(code: Int, reason: String, remote: Boolean) {
+                    handleConnectionClose(this)
+                }
+                override fun onError(ex: Exception) {}
+            }
+            relayClient.connect()
+        } catch (_: Exception) {}
+    }
+
+    private fun handleIncomingMessage(conn: WebSocket, message: String) {
+        workerPool.submit {
+            val inputPacket = try {
+                Packet.deserialize(message)
+            } catch (_: Exception) {
+                Packet(type = "ERROR", payload = """{"ok":false,"message":"Malformed packet"}""")
+            }
+            val sendPacket: (Packet) -> Unit = { packet ->
+                if (conn.isOpen) {
+                    conn.send(packet.serialize())
+                }
+            }
+            val response = processPacket(inputPacket, sendPacket)
+            val currentRegisteredPlayerId = conn.getAttachment<String>()
+            if (currentRegisteredPlayerId == null) {
+                val registeredPlayerId = extractPlayerId(response) ?: extractPlayerIdFromRequest(inputPacket)
+                if (registeredPlayerId != null) {
+                    conn.setAttachment(registeredPlayerId)
+                }
+            }
+            sendPacket(response)
+        }
+    }
+
+    private fun handleConnectionClose(conn: WebSocket) {
+        val registeredPlayerId = conn.getAttachment<String>()
+        if (registeredPlayerId != null) {
+            unregisterSubscriber(registeredPlayerId)
+        }
     }
 }

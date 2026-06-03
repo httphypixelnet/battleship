@@ -38,7 +38,7 @@ class LanGameAdvertiser(private val port: Int) {
     }
 
     @Synchronized
-    fun advertiseOpenGame(hostName: String) {
+    fun advertiseOpenGame(hostName: String, gameId: String) {
         val dns = jmDNS ?: throw IllegalStateException("JmDNS advertiser is not started")
         clearOpenGame()
 
@@ -47,7 +47,8 @@ class LanGameAdvertiser(private val port: Int) {
         val props = mapOf(
             "open" to "true",
             "host" to safeHost,
-            "port" to port.toString()
+            "port" to port.toString(),
+            "gameId" to gameId
         )
         val info = ServiceInfo.create(SERVICE_TYPE, serviceName, port, 0, 0, props)
         try {
