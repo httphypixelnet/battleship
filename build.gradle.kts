@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "doom.despair"
-version = "1.0-SNAPSHOT"
+version = "1.0.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -65,4 +65,85 @@ tasks.test {
 }
 kotlin {
     jvmToolchain(25)
+}
+
+val generateBuildConstants by tasks.registering {
+    group = "build"
+    description = "Generates build constants with the project version for Kotlin and TS codebases"
+    
+    val versionStr = project.version.toString()
+    inputs.property("version", versionStr)
+    
+    val match = Regex("""^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?""").find(versionStr)
+    val major = match?.groupValues?.get(1)?.toInt() ?: 1
+    val minor = match?.groupValues?.get(2)?.toInt() ?: 0
+    val patch = match?.groupValues?.get(3)?.toInt() ?: 0
+    val prerelease = match?.groupValues?.get(4) ?: ""
+    
+    val kotlinFile = file("src/main/java/doom/despair/core/BuildConstants.kt")
+    val frontendFile = file("frontend/src/buildConstants.ts")
+    val lobbyFile = file("lobby/buildConstants.ts")
+    
+    outputs.files(kotlinFile, frontendFile, lobbyFile)
+    
+    val tripleQuote = "\"\"\""
+    
+    doLast {
+        kotlinFile.parentFile.mkdirs()
+        kotlinFile.writeText("""
+            package doom.despair.core
+
+            object BuildConstants {
+                const val VERSION = "$versionStr"
+                const val MAJOR = $major
+                const val MINOR = $minor
+                const val PATCH = $patch
+                const val PRERELEASE = "$prerelease"
+                /**
+                    Check if current version is equal to other version string.
+                    @returns 0 if wrong version, 1 if snapshot, 2 if correct
+                */
+                fun sameVersion(otherVersion: String): Int {
+                    val match = Regex(${tripleQuote}^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?${tripleQuote}).find(otherVersion) ?: return 0
+                    val oMajor = match.groupValues[1].toInt()
+                    val oMinor = match.groupValues[2].toInt()
+                    val oPatch = match.groupValues[3].toInt()
+                    if (oMajor == MAJOR && oMinor == MINOR && oPatch == PATCH) {
+                        return if (PRERELEASE == match.groupValues[4]) 2 else 1
+                    }
+                    return 0;
+                }
+            }
+        """.trimIndent() + "\n")
+        
+        val tsContent = """
+            export const VERSION = "$versionStr";
+            export const MAJOR = $major;
+            export const MINOR = $minor;
+            export const PATCH = $patch;
+            export const PRERELEASE = "$prerelease";
+
+            export function sameVersion(otherVersion: string): number {
+                const match = /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?/.exec(otherVersion);
+                if (!match || match.length < 4) return 0;
+                const oMajor = parseInt(match[1]!, 10);
+                const oMinor = parseInt(match[2]!, 10);
+                const oPatch = parseInt(match[3]!, 10);
+                if (MAJOR === oMajor && MINOR === oMinor && PATCH === oPatch) {
+                    return PRERELEASE === match[4] ? 2 : 1;
+                }
+                return 0
+            }
+        """.trimIndent() + "\n"
+        
+        frontendFile.parentFile.mkdirs()
+        frontendFile.writeText(tsContent)
+        
+        lobbyFile.parentFile.mkdirs()
+        lobbyFile.writeText(tsContent)
+    }
+}
+
+tasks.named("compileKotlin") {
+    dependsOn(generateBuildConstants)
 }

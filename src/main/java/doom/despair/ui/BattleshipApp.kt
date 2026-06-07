@@ -9,6 +9,7 @@ import doom.despair.core.CellView
 import doom.despair.core.GameStateDto
 import doom.despair.server.EmbeddedServerManager
 import doom.despair.ships.ShipType
+import doom.despair.ships.ShipType.Companion.shipLength
 import javafx.application.Application
 import javafx.application.Platform
 import javafx.event.ActionEvent
@@ -22,10 +23,12 @@ import javafx.scene.control.CheckBox
 import javafx.scene.control.Label
 import javafx.scene.control.ListView
 import javafx.scene.control.TextField
+import javafx.scene.image.ImageView
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.GridPane
 import javafx.scene.layout.HBox
+import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.slf4j.Logger
@@ -440,8 +443,10 @@ class BattleshipApp : Application() {
     private fun renderBoard(cells: List<CellView>, grid: GridPane) {
         val cellButtons = grid.children.filterIsInstance<Button>()
         for (button in cellButtons) {
-            button.text = ""
-            button.style = "-fx-background-color: #2f3b52;"
+            button.graphic = StackPane(
+                ImageView(ImageLoader.loadImage("Background", 1)),
+                ImageView(ImageLoader.loadImage("Background", 3))
+            )
         }
         if (cells.isEmpty()) {
             return
@@ -453,13 +458,15 @@ class BattleshipApp : Application() {
                 ?: continue
             when (cell.state) {
                 CellState.UNKNOWN -> {
-                    target.style = "-fx-background-color: #2f3b52;"
-                    target.text = ""
+                    target.graphic = StackPane(
+                        ImageView(ImageLoader.loadImage("Background", 1)),
+                                ImageView(ImageLoader.loadImage("Background", 3))
+                    )
                 }
 
                 CellState.SHIP -> {
-                    target.style = "-fx-background-color: #6c8ebf;"
-                    target.text = "S"
+                    target.graphic =
+                        ImageLoader.getImageView(cell.shipType ?: throw IllegalStateException("Missing ship type"), cell.segment ?: throw IllegalStateException("Missing ship segment"))
                 }
 
                 CellState.HIT -> {
@@ -504,22 +511,14 @@ class BattleshipApp : Application() {
             }
             cells.add(x to y)
         }
-        val style = if (valid) "-fx-background-color: #27ae60; -fx-text-fill: #ffffff;" else "-fx-background-color: #e74c3c; -fx-text-fill: #ffffff;"
+//        val style = if (valid) "-fx-background-color: #27ae60; -fx-text-fill: #ffffff;" else "-fx-background-color: #e74c3c; -fx-text-fill: #ffffff;"
         for ((x, y) in cells) {
             if (x !in 0 until boardSize || y !in 0 until boardSize) {
                 continue
             }
             val target = getCellButton(grid, x, y) ?: continue
-            target.style = style
-            target.text = "P"
-        }
-    }
-
-    private fun shipLength(type: ShipType): Int {
-        return when (type) {
-            ShipType.AIRCRAFT_CARRIER -> 4
-            ShipType.DESTROYER -> 3
-            ShipType.SUBMARINE -> 2
+//            target.style = style
+//            target.text = "P"
         }
     }
 

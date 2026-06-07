@@ -66,5 +66,11 @@ enum class CellState {
     MISS
 }
 
-data class CellView(val x: Int, val y: Int, val state: CellState)
+data class CellView(
+    val x: Int,
+    val y: Int,
+    val state: CellState,
+    val shipType: ShipType? = null,
+    val segment: Int? = null
+)
 

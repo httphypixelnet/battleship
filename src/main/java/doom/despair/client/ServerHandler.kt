@@ -40,9 +40,9 @@ class ServerHandler(
         if (!connected && gameId != null) {
             // Debug: show which scheme will be used for relay
             val scheme = if (LOBBY_HOST.startsWith("localhost") || LOBBY_HOST.startsWith("127.0.0.1")) "ws" else "wss"
-            println("[DEBUG] Relay scheme: " + scheme)
+            println("[DEBUG] Relay scheme: $scheme")
             val relayUriStr = "$scheme://$LOBBY_HOST/relay?role=client&gameId=$gameId"
-            println("[DEBUG] Relay URI: " + relayUriStr)
+            println("[DEBUG] Relay URI: $relayUriStr")
             try {
                 val relayClient = createWsClient(URI(relayUriStr))
                 if (relayClient.connectBlocking()) {

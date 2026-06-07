@@ -2,9 +2,11 @@ package doom.despair.integration
 
 import doom.despair.Player
 import doom.despair.client.Client
+import doom.despair.core.CellView
 import doom.despair.server.BattleshipServer
 import doom.despair.ships.ShipType
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -37,6 +39,9 @@ class LocalGameFlowTest {
 
             val initialState = hostRemote.getState(hostId)
             assertEquals(hostId, initialState.currentTurnPlayerId)
+            assertShipSegment(initialState.playerBoard, 0, 0, ShipType.AIRCRAFT_CARRIER, 1)
+            assertShipSegment(initialState.playerBoard, 0, 3, ShipType.DESTROYER, 2)
+            assertShipSegment(initialState.playerBoard, 3, 4, ShipType.SUBMARINE, 2)
 
             hostRemote.fireShot(hostId, 0, 0)
             assertThrows(IllegalStateException::class.java) {
@@ -64,6 +69,19 @@ class LocalGameFlowTest {
             guestClient.disconnect()
             server.stop()
         }
+    }
+
+    private fun assertShipSegment(
+        board: List<CellView>,
+        x: Int,
+        y: Int,
+        shipType: ShipType,
+        segment: Int
+    ) {
+        val cell = board.firstOrNull { it.x == x && it.y == y }
+        assertNotNull(cell, "Expected cell at ($x,$y)")
+        assertEquals(shipType, cell!!.shipType)
+        assertEquals(segment, cell.segment)
     }
 }
 

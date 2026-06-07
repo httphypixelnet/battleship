@@ -44,3 +44,6 @@ bin/
 
 # ap csp stuff
 compile-all-kotlin.ps1
+
+# Generated build constants
+src/main/java/doom/despair/core/BuildConstants.kt

@@ -1,15 +1,12 @@
 package doom.despair.client
 
-//import doom.despair.network.ProxyConfig
-
 import doom.despair.Player
 import doom.despair.core.ClientContext
 import doom.despair.core.ClientGameEvent
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class Client(val player: Player) {
-    init { // load proxy configuration
-//        ProxyConfig
+    init {
         // Debug proxy settings
         println("[DEBUG] http.proxyHost=" + System.getProperty("http.proxyHost"))
         println("[DEBUG] http.proxyPort=" + System.getProperty("http.proxyPort"))

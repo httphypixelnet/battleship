@@ -10,6 +10,13 @@ class Board {
     @JvmRecord
     data class Coordinate(val x: Int, val y: Int)
 
+    private data class PlacedShip(
+        val type: ShipType,
+        val start: Coordinate,
+        val horizontal: Boolean,
+        val size: Int
+    )
+
     data class ShotResult(
         val valid: Boolean,
         val hit: Boolean,
@@ -21,6 +28,7 @@ class Board {
     private val grid: MutableMap<Coordinate, Ship> = HashMap()
     private val hits: MutableSet<Coordinate> = HashSet()
     private val misses: MutableSet<Coordinate> = HashSet()
+    private val placements: MutableMap<Ship, PlacedShip> = HashMap()
 
     fun getShipAt(coord: Coordinate?): Ship? {
         return grid[coord]
@@ -38,6 +46,7 @@ class Board {
             temp[coord] = ship
         }
         grid.putAll(temp)
+        placements[ship] = PlacedShip(shipType, start, horizontal, ship.size)
         return true
     }
 
@@ -74,11 +83,31 @@ class Board {
                     else -> CellState.UNKNOWN
                 }
                 if (state != CellState.UNKNOWN) {
-                    cells.add(CellView(x, y, state))
+                    if (state == CellState.SHIP && revealShips) {
+                        val ship = grid[c]
+                        val placement = placements[ship]
+                        if (ship != null && placement != null) {
+                            val segment = calculateSegment(placement, c)
+                            cells.add(CellView(x, y, state, placement.type, segment))
+                        } else {
+                            cells.add(CellView(x, y, state))
+                        }
+                    } else {
+                        cells.add(CellView(x, y, state))
+                    }
                 }
             }
         }
         return cells
+    }
+
+    private fun calculateSegment(placement: PlacedShip, coord: Coordinate): Int {
+        val offset = if (placement.horizontal) {
+            coord.x - placement.start.x
+        } else {
+            coord.y - placement.start.y
+        }
+        return offset + 1
     }
 
     fun hasPlacedShips(): Boolean = grid.isNotEmpty()
