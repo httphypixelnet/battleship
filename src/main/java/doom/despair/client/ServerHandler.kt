@@ -22,7 +22,7 @@ class ServerHandler(
     private var wsClient: WebSocketClient? = null
 
     private companion object {
-        val LOBBY_HOST = System.getProperty("lobby.host") ?: "example.com:25567"
+        val LOBBY_HOST = System.getProperty("lobby.host") ?: "54.213.93.141:25565"
     }
 
     init {
@@ -39,7 +39,7 @@ class ServerHandler(
 
         if (!connected && gameId != null) {
             // Debug: show which scheme will be used for relay
-            val scheme = if (LOBBY_HOST.startsWith("localhost") || LOBBY_HOST.startsWith("127.0.0.1")) "ws" else "wss"
+            val scheme = if (LOBBY_HOST.startsWith("localhost") || LOBBY_HOST.startsWith("127.0.0.1")) "ws" else "ws"
             println("[DEBUG] Relay scheme: $scheme")
             val relayUriStr = "$scheme://$LOBBY_HOST/relay?role=client&gameId=$gameId"
             println("[DEBUG] Relay URI: $relayUriStr")

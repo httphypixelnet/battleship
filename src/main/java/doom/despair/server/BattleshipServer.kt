@@ -425,8 +425,8 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
                 } catch (_: Exception) {
                     "127.0.0.1"
                 }
-                val lobbyHost = System.getProperty("lobby.host") ?: "localhost:25565"
-                val scheme = if (lobbyHost.startsWith("localhost") || lobbyHost.startsWith("127.0.0.1")) "ws" else "wss"
+                val lobbyHost = System.getProperty("lobby.host") ?: "54.213.93.141:25565"
+                val scheme = if (lobbyHost.startsWith("localhost") || lobbyHost.startsWith("127.0.0.1")) "ws" else "ws"
                 val lobbyUri = "$scheme://$lobbyHost/control?gameId=$gameId&hostName=$hostName&address=$localIp:$port"
                 try {
                     val client = object : WebSocketClient(URI(lobbyUri)) {
@@ -454,8 +454,8 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
     }
 
     private fun connectToRelay(gameId: String, clientId: String) {
-        val lobbyHost = System.getProperty("lobby.host") ?: "example.com:25567"
-        val scheme = if (lobbyHost.startsWith("localhost") || lobbyHost.startsWith("127.0.0.1")) "ws" else "wss"
+        val lobbyHost = System.getProperty("lobby.host") ?: "54.213.93.141:25565"
+        val scheme = if (lobbyHost.startsWith("localhost") || lobbyHost.startsWith("127.0.0.1")) "ws" else "ws"
         val relayUri = "$scheme://$lobbyHost/relay?gameId=$gameId&role=server&clientId=$clientId"
         try {
             val relayClient = object : WebSocketClient(URI(relayUri)) {
