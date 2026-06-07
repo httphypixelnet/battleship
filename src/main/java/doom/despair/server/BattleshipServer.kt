@@ -20,6 +20,8 @@ import doom.despair.core.events.ValidEvents
 import doom.despair.ships.ShipType
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.URI
 import java.util.Collections
 import java.util.LinkedHashSet
 import java.util.UUID
@@ -32,7 +34,6 @@ import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ClientHandshake
 import org.java_websocket.handshake.ServerHandshake
 import org.java_websocket.server.WebSocketServer
-import java.net.URI
 import kotlin.concurrent.thread
 import kotlin.concurrent.Volatile
 
@@ -443,6 +444,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
                         override fun onClose(code: Int, reason: String, remote: Boolean) {}
                         override fun onError(ex: Exception) {}
                     }
+                    applyProxyIfConfigured(client)
                     client.connect()
                     lobbyControlClient = client
                 } catch (_: Exception) {}
@@ -468,8 +470,18 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
                 }
                 override fun onError(ex: Exception) {}
             }
+            applyProxyIfConfigured(relayClient)
             relayClient.connect()
         } catch (_: Exception) {}
+    }
+
+    private fun applyProxyIfConfigured(client: WebSocketClient) {
+        val proxyHost = System.getProperty("https.proxyHost") ?: System.getProperty("http.proxyHost")
+        val proxyPortRaw = System.getProperty("https.proxyPort") ?: System.getProperty("http.proxyPort")
+        val proxyPort = proxyPortRaw?.toIntOrNull()
+        if (proxyHost != null && proxyPort != null) {
+            client.setProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyHost, proxyPort)))
+        }
     }
 
     private fun handleIncomingMessage(conn: WebSocket, message: String) {
