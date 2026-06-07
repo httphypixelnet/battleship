@@ -18,7 +18,7 @@ class LocalGameDiscovery : Closeable {
 
     private companion object {
         const val SERVICE_TYPE = "_battleship._tcp.local."
-        val LOBBY_HOST = System.getProperty("lobby.host") ?: "localhost:25565"
+        val LOBBY_HOST = System.getProperty("lobby.host") ?: "54.213.93.141"
         val LOBBY_GAMES_URL = if (LOBBY_HOST.startsWith("localhost") || LOBBY_HOST.startsWith("127.0.0.1")) {
             "http://$LOBBY_HOST/games"
         } else {

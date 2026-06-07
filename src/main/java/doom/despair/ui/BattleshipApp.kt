@@ -41,6 +41,7 @@ class BattleshipApp : Application() {
         val remote: RemoteServer,
         val playerId: String,
         val playerName: String,
+        val shipOrientationByCell: MutableMap<Pair<Int, Int>, Boolean> = HashMap(),
         var resultRecorded: Boolean = false
     )
 
@@ -236,7 +237,7 @@ class BattleshipApp : Application() {
                 } else {
                     "All ships placed. Opponent: ${state.opponentName}"
                 }
-            renderBoard(state.playerBoard, placementGrid)
+            renderBoard(state.playerBoard, placementGrid, active.shipOrientationByCell)
             updateShipButtons(state)
             if (state.playerShipsPlaced && !movedToBattle) {
                 movedToBattle = true
@@ -250,24 +251,30 @@ class BattleshipApp : Application() {
                 if (ev.button == MouseButton.SECONDARY) {
                     orientation = !orientation
                     val state = latestState ?: return@createBoardGrid
-                    renderBoard(state.playerBoard, placementGrid)
+                    renderBoard(state.playerBoard, placementGrid, active.shipOrientationByCell)
                     applyPlacementPreview(placementGrid, state, selectedShip, x, y, orientation)
                     return@createBoardGrid
                 }
                 try {
                     active.remote.placeShip(active.playerId, selectedShip, x, y, orientation)
+                    val length = shipLength(selectedShip)
+                    for (i in 0 until length) {
+                        val cellX = if (orientation) x + i else x
+                        val cellY = if (orientation) y else y + i
+                        active.shipOrientationByCell[cellX to cellY] = orientation
+                    }
                 } catch (e: Exception) {
                     showError("Ship placement failed", e.message ?: "Unknown error")
                 }
             },
             onHover = { x, y ->
                 val state = latestState ?: return@createBoardGrid
-                renderBoard(state.playerBoard, placementGrid)
+                renderBoard(state.playerBoard, placementGrid, active.shipOrientationByCell)
                 applyPlacementPreview(placementGrid, state, selectedShip, x, y, orientation)
             },
             onHoverExit = {
                 val state = latestState ?: return@createBoardGrid
-                renderBoard(state.playerBoard, placementGrid)
+                renderBoard(state.playerBoard, placementGrid, active.shipOrientationByCell)
             }
         )
 
@@ -324,7 +331,7 @@ class BattleshipApp : Application() {
             }
         })
         fun applyState(state: GameStateDto) {
-            updateBattleUi(stateLabel, playerGrid, opponentGrid, state)
+            updateBattleUi(stateLabel, playerGrid, opponentGrid, state, active.shipOrientationByCell)
             if (state.winnerPlayerId != null) {
                 showGameOverScene(state)
             }
@@ -391,7 +398,8 @@ class BattleshipApp : Application() {
         stateLabel: Label,
         playerGrid: GridPane,
         opponentGrid: GridPane,
-        state: GameStateDto
+        state: GameStateDto,
+        playerShipOrientationByCell: Map<Pair<Int, Int>, Boolean>
     ) {
         stateLabel.text = when {
             state.waitingForOpponent -> "Waiting for opponent..."
@@ -400,7 +408,7 @@ class BattleshipApp : Application() {
             state.currentTurnPlayerId == state.playerId -> "Your turn"
             else -> "Opponent's turn"
         }
-        renderBoard(state.playerBoard, playerGrid)
+        renderBoard(state.playerBoard, playerGrid, playerShipOrientationByCell)
         renderBoard(state.opponentBoard, opponentGrid)
         val canShoot = state.currentTurnPlayerId == state.playerId && state.winnerPlayerId == null &&
             state.playerShipsPlaced && state.opponentShipsPlaced
@@ -414,18 +422,18 @@ class BattleshipApp : Application() {
         onHoverExit: (() -> Unit)? = null
     ): GridPane {
         val grid = GridPane()
-        grid.hgap = 2.0
-        grid.vgap = 2.0
+        grid.hgap = 0.0
+        grid.vgap = 0.0
         grid.alignment = Pos.CENTER
         for (y in 0 until boardSize) {
             for (x in 0 until boardSize) {
                 val cell = Button()
-                cell.prefWidth = 34.0
-                cell.prefHeight = 34.0
-                cell.minWidth = 34.0
-                cell.minHeight = 34.0
-                cell.maxWidth = 34.0
-                cell.maxHeight = 34.0
+                cell.prefWidth = 32.0
+                cell.prefHeight = 32.0
+                cell.minWidth = 32.0
+                cell.minHeight = 32.0
+                cell.maxWidth = 32.0
+                cell.maxHeight = 32.0
                 if (clickable && onClick != null) {
                     cell.setOnMouseClicked { onClick(x, y, it) }
                     cell.setOnMouseEntered { onHover?.invoke(x, y) }
@@ -440,7 +448,11 @@ class BattleshipApp : Application() {
         return grid
     }
 
-    private fun renderBoard(cells: List<CellView>, grid: GridPane) {
+    private fun renderBoard(
+        cells: List<CellView>,
+        grid: GridPane,
+        shipOrientationByCell: Map<Pair<Int, Int>, Boolean> = emptyMap()
+    ) {
         val cellButtons = grid.children.filterIsInstance<Button>()
         for (button in cellButtons) {
             button.graphic = StackPane(
@@ -465,8 +477,13 @@ class BattleshipApp : Application() {
                 }
 
                 CellState.SHIP -> {
+                    val isHorizontal = shipOrientationByCell[cell.x to cell.y] ?: true
                     target.graphic =
-                        ImageLoader.getImageView(cell.shipType ?: throw IllegalStateException("Missing ship type"), cell.segment ?: throw IllegalStateException("Missing ship segment"))
+                        ImageLoader.getImageView(
+                            cell.shipType ?: throw IllegalStateException("Missing ship type"),
+                            cell.segment ?: throw IllegalStateException("Missing ship segment"),
+                            isHorizontal
+                        )
                 }
 
                 CellState.HIT -> {

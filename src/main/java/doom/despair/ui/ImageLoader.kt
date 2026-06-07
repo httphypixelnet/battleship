@@ -25,18 +25,20 @@ class ImageLoader {
             return loadImage(name, 1, layer)
         }
         fun loadImage(type: ShipType, segment: Int, layer: Int): Image {
-            return when (type) {
-                ShipType.DESTROYER -> loadImage("Destroyer", segment, layer)
-                ShipType.SUBMARINE -> loadImage("Sub", segment, layer)
-                ShipType.AIRCRAFT_CARRIER -> loadImage("Carrier", segment, layer)
+            val name = when (type) {
+                ShipType.DESTROYER -> "Destroyer"
+                ShipType.SUBMARINE -> "Sub"
+                ShipType.AIRCRAFT_CARRIER -> "Carrier"
             }
+            return loadImage(name, (type.shipLength()+1)-segment, layer)
         }
-        fun getImageView(type: ShipType, segment: Int): StackPane {
+        fun getImageView(type: ShipType, segment: Int, rotation: Boolean): StackPane {
+//            if (rotation)
             return StackPane(
-                ImageView(loadImage("Background", 1)) /* .apply { fitWidth = 32.0; fitHeight = 32.0 } */,
-                ImageView(loadImage(type, segment, 2))/* .apply { fitWidth = 32.0; fitHeight = 32.0 } */,
-                ImageView(loadImage("Background", 3)) /* .apply { fitWidth = 32.0; fitHeight = 32.0 } */,
-                ImageView(loadImage(type, segment, 4))/* .apply { fitWidth = 32.0; fitHeight = 32.0 } */
+                ImageView(loadImage("Background", 1)) .apply { },
+                ImageView(loadImage(type, segment, 2)).apply { rotate = if (rotation) 0.0 else 90.0; opacity = 0.5 },
+                ImageView(loadImage("Background", 3)),
+                ImageView(loadImage(type, segment, 4)).apply { rotate = if (rotation) 0.0 else 90.0 }
             )
         }
     }
