@@ -83,6 +83,10 @@ class ServerHandler(
             }
 
             override fun onMessage(message: String) {
+                if (wsClient !== this) {
+                    debug("WS message ignored from non-active client uri=$uri")
+                    return
+                }
                 val packet = Packet.deserialize(message)
                 debug("WS message type=${packet.type} bytes=${message.length}")
                 if (packet.type == "STATE_UPDATE") {
@@ -94,7 +98,7 @@ class ServerHandler(
 
             override fun onClose(code: Int, reason: String, remote: Boolean) {
                 debug("WS close uri=$uri code=$code reason='$reason' remote=$remote")
-                if (!closed) {
+                if (!closed && wsClient === this) {
                     responseQueue.offer(Packet("ERROR", """{"ok":false,"message":"Connection closed"}"""))
                 }
             }
