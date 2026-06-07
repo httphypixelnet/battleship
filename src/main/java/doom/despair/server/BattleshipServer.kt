@@ -416,7 +416,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
     @Synchronized
     private fun updateLobbyAdvertisement() {
         val session = currentSession
-        if (session != null && session.guest == null && session.winnerPlayerId == null) {
+        if (session != null && session.winnerPlayerId == null) {
             if (lobbyControlClient == null || lobbyControlClient?.isOpen == false) {
                 val gameId = session.gameId
                 val hostName = session.host.name
