@@ -11,6 +11,13 @@ interface WebSocketData {
     clientId?: string;
 }
 
+const debugRelay = (process.env.DEBUG_RELAY ?? "false").toLowerCase() === "true";
+function log(msg: string): void {
+    if (debugRelay) {
+        console.log(`[RelayDebug][Lobby] ${msg}`);
+    }
+}
+
 const games = new Map<string, {
     hostName: string;
     address: string;
@@ -94,6 +101,7 @@ const server = Bun.serve<WebSocketData>({
         open(ws) {
             console.log("Opened websocket")
             const data = ws.data;
+            log(`open type=${data.type} gameId=${data.gameId ?? "-"} clientId=${data.clientId ?? "-"}`)
             if (data.type === "control") {
                 const gameId = data.gameId!;
                 games.set(gameId, {
@@ -118,10 +126,12 @@ const server = Bun.serve<WebSocketData>({
                     type: "CONNECT_RELAY",
                     clientId,
                 }));
+                log(`relay-client waiting gameId=${gameId} clientId=${clientId}`)
             } else if (data.type === "relay-server") {
                 const clientId = data.clientId!;
                 const clientWs = pendingClients.get(clientId);
                 if (!clientWs) {
+                    log(`relay-server missing client clientId=${clientId}`)
                     ws.close(4002, "Client not found or timed out");
                     return;
                 }
@@ -135,16 +145,22 @@ const server = Bun.serve<WebSocketData>({
                 if (game) {
                     game.status = "playing";
                 }
+                log(`relay pair established gameId=${gameId} clientId=${clientId}`)
             }
         },
         message(ws, message) {
             const peer = (ws as any).peer;
+            const data = ws.data;
+            log(`message from=${data.type} gameId=${data.gameId ?? "-"} clientId=${data.clientId ?? "-"} bytes=${message.toString().length} peerOpen=${peer?.readyState === 1}`)
             if (peer && peer.readyState === 1) {
                 peer.send(message);
+            } else {
+                log(`drop message from=${data.type} reason=no-open-peer`)
             }
         },
         close(ws, code, reason) {
             const data = ws.data;
+            log(`close type=${data.type} gameId=${data.gameId ?? "-"} clientId=${data.clientId ?? "-"} code=${code} reason='${reason}'`)
             if (data.type === "control") {
                 const gameId = data.gameId!;
                 games.delete(gameId);
@@ -154,11 +170,13 @@ const server = Bun.serve<WebSocketData>({
                 }
                 const peer = (ws as any).peer;
                 if (peer) {
+                    log(`close relay-client -> closing peer code=${code}`)
                     peer.close(code, reason);
                 }
             } else if (data.type === "relay-server") {
                 const peer = (ws as any).peer;
                 if (peer) {
+                    log(`close relay-server -> closing peer code=${code}`)
                     peer.close(code, reason);
                 }
             }

@@ -20,6 +20,13 @@ class ServerHandler(
     @Volatile
     private var stateUpdateHandler: ((Packet) -> Unit)? = null
     private var wsClient: WebSocketClient? = null
+    private val debugRelay = (System.getProperty("debug.relay") ?: "false").equals("true", ignoreCase = true)
+
+    private fun debug(msg: String) {
+        if (debugRelay) {
+            println("[RelayDebug][Client] $msg")
+        }
+    }
 
     private companion object {
         val LOBBY_HOST = System.getProperty("lobby.host") ?: "54.213.93.141:25565"
@@ -33,8 +40,10 @@ class ServerHandler(
             if (directClient.connectBlocking()) {
                 wsClient = directClient
                 connected = true
+                debug("Connected direct uri=$directUriStr")
             }
         } catch (_: Exception) {
+            debug("Direct connect failed uri=$directUriStr")
         }
 
         if (!connected && gameId != null) {
@@ -48,6 +57,7 @@ class ServerHandler(
                 if (relayClient.connectBlocking()) {
                     wsClient = relayClient
                     connected = true
+                    debug("Connected relay uri=$relayUriStr")
                 }
             } catch (e: Exception) {
                 throw RuntimeException("Direct connection failed, and fallback to relay failed", e)
@@ -68,10 +78,13 @@ class ServerHandler(
         } else null
 
         val client = object : WebSocketClient(uri) {
-            override fun onOpen(handshakedata: ServerHandshake) {}
+            override fun onOpen(handshakedata: ServerHandshake) {
+                debug("WS open uri=$uri")
+            }
 
             override fun onMessage(message: String) {
                 val packet = Packet.deserialize(message)
+                debug("WS message type=${packet.type} bytes=${message.length}")
                 if (packet.type == "STATE_UPDATE") {
                     stateUpdateHandler?.invoke(packet)
                 } else {
@@ -80,12 +93,15 @@ class ServerHandler(
             }
 
             override fun onClose(code: Int, reason: String, remote: Boolean) {
+                debug("WS close uri=$uri code=$code reason='$reason' remote=$remote")
                 if (!closed) {
                     responseQueue.offer(Packet("ERROR", """{"ok":false,"message":"Connection closed"}"""))
                 }
             }
 
-            override fun onError(ex: Exception) {}
+            override fun onError(ex: Exception) {
+                debug("WS error uri=$uri error=${ex.message}")
+            }
         }
         // Apply proxy if available
         if (proxy != null) {
@@ -104,8 +120,11 @@ class ServerHandler(
         try {
             val packet = Packet(type = type, payload = payload?.let { gson.toJson(it) })
             val ws = wsClient ?: throw IllegalStateException("Not connected")
+            debug("Send request type=$type")
             ws.send(packet.serialize())
-            return responseQueue.take()
+            val response = responseQueue.take()
+            debug("Receive response type=${response.type} for request type=$type")
+            return response
         } catch (e: Exception) {
             throw RuntimeException("Network request failed", e)
         }
@@ -117,6 +136,7 @@ class ServerHandler(
 
     override fun close() {
         closed = true
+        debug("Client close() invoked")
         wsClient?.close()
     }
 }

@@ -58,6 +58,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
     )
 
     private val gson = Gson()
+    private val debugRelay = (System.getProperty("debug.relay") ?: "false").equals("true", ignoreCase = true)
     private val eventQueue: ConcurrentLinkedQueue<ServerGameEvent> = ConcurrentLinkedQueue<ServerGameEvent>()
     @Volatile
     private var currentSession: GameSession? = null
@@ -69,6 +70,12 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
     @Volatile
     private var webSocketServer: WebSocketServer? = null
     private var lobbyControlClient: WebSocketClient? = null
+
+    private fun debug(msg: String) {
+        if (debugRelay) {
+            println("[RelayDebug][Server] $msg")
+        }
+    }
 
     fun queueEvent(event: ServerGameEvent) {
         eventQueue.add(event)
@@ -98,17 +105,23 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
             return
         }
         val server = object : WebSocketServer(InetSocketAddress(port)) {
-            override fun onOpen(conn: WebSocket, handshake: ClientHandshake) {}
+            override fun onOpen(conn: WebSocket, handshake: ClientHandshake) {
+                debug("Game WS open remote=${conn.remoteSocketAddress}")
+            }
 
             override fun onClose(conn: WebSocket, code: Int, reason: String, remote: Boolean) {
+                debug("Game WS close remote=${conn.remoteSocketAddress} code=$code reason='$reason' remote=$remote")
                 handleConnectionClose(conn)
             }
 
             override fun onMessage(conn: WebSocket, message: String) {
+                debug("Game WS message remote=${conn.remoteSocketAddress} bytes=${message.length}")
                 handleIncomingMessage(conn, message)
             }
 
-            override fun onError(conn: WebSocket?, ex: Exception) {}
+            override fun onError(conn: WebSocket?, ex: Exception) {
+                debug("Game WS error remote=${conn?.remoteSocketAddress} error=${ex.message}")
+            }
 
             override fun onStart() {}
         }
@@ -431,8 +444,11 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
                 val lobbyUri = "$scheme://$lobbyHost/control?gameId=$gameId&hostName=$hostName&address=$localIp:$port"
                 try {
                     val client = object : WebSocketClient(URI(lobbyUri)) {
-                        override fun onOpen(handshakedata: ServerHandshake) {}
+                        override fun onOpen(handshakedata: ServerHandshake) {
+                            debug("Lobby control open uri=$lobbyUri")
+                        }
                         override fun onMessage(message: String) {
+                            debug("Lobby control message=$message")
                             try {
                                 val msg = gson.fromJson(message, Map::class.java)
                                 if (msg["type"] == "CONNECT_RELAY") {
@@ -441,8 +457,12 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
                                 }
                             } catch (_: Exception) {}
                         }
-                        override fun onClose(code: Int, reason: String, remote: Boolean) {}
-                        override fun onError(ex: Exception) {}
+                        override fun onClose(code: Int, reason: String, remote: Boolean) {
+                            debug("Lobby control close code=$code reason='$reason' remote=$remote")
+                        }
+                        override fun onError(ex: Exception) {
+                            debug("Lobby control error=${ex.message}")
+                        }
                     }
                     applyProxyIfConfigured(client)
                     client.connect()
@@ -461,14 +481,20 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
         val relayUri = "$scheme://$lobbyHost/relay?gameId=$gameId&role=server&clientId=$clientId"
         try {
             val relayClient = object : WebSocketClient(URI(relayUri)) {
-                override fun onOpen(handshakedata: ServerHandshake) {}
+                override fun onOpen(handshakedata: ServerHandshake) {
+                    debug("Relay server open clientId=$clientId uri=$relayUri")
+                }
                 override fun onMessage(message: String) {
+                    debug("Relay server message clientId=$clientId bytes=${message.length}")
                     handleIncomingMessage(this, message)
                 }
                 override fun onClose(code: Int, reason: String, remote: Boolean) {
+                    debug("Relay server close clientId=$clientId code=$code reason='$reason' remote=$remote")
                     handleConnectionClose(this)
                 }
-                override fun onError(ex: Exception) {}
+                override fun onError(ex: Exception) {
+                    debug("Relay server error clientId=$clientId error=${ex.message}")
+                }
             }
             applyProxyIfConfigured(relayClient)
             relayClient.connect()
@@ -491,8 +517,10 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
             } catch (_: Exception) {
                 Packet(type = "ERROR", payload = """{"ok":false,"message":"Malformed packet"}""")
             }
+            debug("Process packet type=${inputPacket.type} conn=${conn.remoteSocketAddress}")
             val sendPacket: (Packet) -> Unit = { packet ->
                 if (conn.isOpen) {
+                    debug("Send packet type=${packet.type} conn=${conn.remoteSocketAddress}")
                     conn.send(packet.serialize())
                 }
             }
@@ -510,6 +538,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
 
     private fun handleConnectionClose(conn: WebSocket) {
         val registeredPlayerId = conn.getAttachment<String>()
+        debug("Connection close cleanup conn=${conn.remoteSocketAddress} playerId=$registeredPlayerId")
         if (registeredPlayerId != null) {
             unregisterSubscriber(registeredPlayerId)
         }
