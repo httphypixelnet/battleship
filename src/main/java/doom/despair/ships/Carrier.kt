@@ -2,4 +2,4 @@ package doom.despair.ships
 
 import doom.despair.Ship
 
-class Carrier : Ship(4)
+class Carrier : Ship(5)

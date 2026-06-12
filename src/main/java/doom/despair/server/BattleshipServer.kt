@@ -355,7 +355,7 @@ class BattleshipServer @JvmOverloads constructor(autoStart: Boolean = true, priv
             opponentShipsPlaced = opponent?.let { allShipsPlaced(it) } ?: false,
             playerShipsRemainingToPlace = REQUIRED_SHIPS.filter { it !in player.placedShips },
             playerBoard = player.board.toView(revealShips = true),
-            opponentBoard = opponent?.board?.toView(revealShips = false) ?: emptyList()
+            opponentBoard = opponent?.board?.toView(revealShips = session.winnerPlayerId != null) ?: emptyList()
         )
         return GameStateResponse(ok = true, state = dto)
     }

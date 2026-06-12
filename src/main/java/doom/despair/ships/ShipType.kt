@@ -6,16 +6,12 @@ enum class ShipType {
     SUBMARINE;
     companion object {
          fun shipLength(type: ShipType): Int {
-            return when (type) {
-                AIRCRAFT_CARRIER -> 4
-                DESTROYER -> 3
-                SUBMARINE -> 2
-            }
+            return type.shipLength()
         }
     }
-    public fun shipLength(): Int {
+    fun shipLength(): Int {
         return when (this) {
-            AIRCRAFT_CARRIER -> 4
+            AIRCRAFT_CARRIER -> 5
             DESTROYER -> 3
             SUBMARINE -> 2
         }

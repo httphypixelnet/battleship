@@ -33,6 +33,7 @@ export interface CellView {
   state: CellState;
   shipType?: ShipType;
   segment?: number;
+  horizontal?: boolean;
 }
 
 export interface CreateGameRequest {

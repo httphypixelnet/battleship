@@ -52,9 +52,11 @@ class LocalGameFlowTest {
             hostRemote.fireShot(hostId, 1, 0)
             hostRemote.fireShot(hostId, 2, 0)
             hostRemote.fireShot(hostId, 3, 0)
+            hostRemote.fireShot(hostId, 4, 0)
             hostRemote.fireShot(hostId, 0, 2)
             hostRemote.fireShot(hostId, 0, 3)
             hostRemote.fireShot(hostId, 0, 4)
+            initialState.playerBoard
             hostRemote.fireShot(hostId, 2, 4)
             val finalShot = hostRemote.fireShot(hostId, 3, 4)
 

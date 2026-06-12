@@ -71,6 +71,7 @@ data class CellView(
     val y: Int,
     val state: CellState,
     val shipType: ShipType? = null,
-    val segment: Int? = null
+    val segment: Int? = null,
+    val horizontal: Boolean? = null
 )
 

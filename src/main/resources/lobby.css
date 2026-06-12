@@ -1,0 +1,178 @@
+.root {
+    -fx-background-color:
+            linear-gradient(
+                    to bottom,
+                    #0f172a,
+                    #1e293b
+            );
+
+    -fx-font-family: "Segoe UI";
+}
+
+/* ================================================= */
+/* Title */
+/* ================================================= */
+
+.title-text {
+    -fx-text-fill: white;
+    -fx-font-size: 40px;
+    -fx-font-weight: bold;
+}
+
+/* ================================================= */
+/* Panels */
+/* ================================================= */
+
+.panel {
+
+    -fx-background-color:
+            rgba(255,255,255,0.08);
+
+    -fx-background-radius: 16;
+
+    -fx-border-color:
+            rgba(255,255,255,0.12);
+
+    -fx-border-radius: 16;
+
+    -fx-padding: 20;
+}
+
+/* ================================================= */
+/* Section Titles */
+/* ================================================= */
+
+.section-title {
+
+    -fx-text-fill: white;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+
+.section-subtitle {
+
+    -fx-text-fill: #dbeafe;
+    -fx-font-size: 14px;
+}
+
+.info-text {
+
+    -fx-text-fill: #94a3b8;
+    -fx-font-size: 12px;
+}
+
+/* ================================================= */
+/* Buttons */
+/* ================================================= */
+
+.button {
+
+    -fx-cursor: hand;
+
+    -fx-background-radius: 10;
+
+    -fx-font-size: 14px;
+
+    -fx-padding: 10 16 10 16;
+}
+
+.primary-button {
+
+    -fx-background-color: #0ea5e9;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.primary-button:hover {
+
+    -fx-background-color: #38bdf8;
+}
+
+.secondary-button {
+
+    -fx-background-color: #334155;
+    -fx-text-fill: white;
+}
+
+.secondary-button:hover {
+
+    -fx-background-color: #475569;
+}
+
+/* ================================================= */
+/* Settings Button */
+/* ================================================= */
+
+.icon-button {
+
+    -fx-background-color:
+            rgba(255,255,255,0.08);
+
+    -fx-background-radius: 100;
+
+    -fx-padding: 10;
+}
+
+.icon-button:hover {
+
+    -fx-background-color:
+            rgba(255,255,255,0.18);
+}
+
+/* ================================================= */
+/* Text Fields */
+/* ================================================= */
+
+.text-field {
+
+    -fx-background-color: #334155;
+
+    -fx-text-fill: white;
+
+    -fx-prompt-text-fill: #94a3b8;
+
+    -fx-background-radius: 10;
+}
+
+/* ================================================= */
+/* Table */
+/* ================================================= */
+
+.table-view {
+
+    -fx-background-color:
+            rgba(255,255,255,0.05);
+
+    -fx-background-radius: 10;
+}
+
+.table-view .column-header {
+
+    -fx-background-color: #334155;
+}
+
+.table-view .column-header-background {
+
+    -fx-background-color: #334155;
+}
+
+.table-view .column-header .label {
+
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.table-row-cell {
+
+    -fx-background-color: transparent;
+}
+
+.table-row-cell:selected {
+
+    -fx-background-color: #0ea5e9;
+}
+
+.table-cell {
+
+    -fx-text-fill: white;
+}

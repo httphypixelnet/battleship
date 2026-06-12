@@ -83,15 +83,15 @@ class Board {
                     else -> CellState.UNKNOWN
                 }
                 if (state != CellState.UNKNOWN) {
-                    if (state == CellState.SHIP && revealShips) {
-                        val ship = grid[c]
-                        val placement = placements[ship]
-                        if (ship != null && placement != null) {
-                            val segment = calculateSegment(placement, c)
-                            cells.add(CellView(x, y, state, placement.type, segment))
-                        } else {
-                            cells.add(CellView(x, y, state))
-                        }
+                    val ship = grid[c]
+                    val placement = placements[ship]
+                    val shouldReveal = ship != null && placement != null && (
+                        revealShips ||
+                        (state == CellState.HIT && grid.filterValues { it === ship }.keys.all { hits.contains(it) })
+                    )
+                    if (shouldReveal) {
+                        val segment = calculateSegment(placement, c)
+                        cells.add(CellView(x, y, state, placement.type, segment, placement.horizontal))
                     } else {
                         cells.add(CellView(x, y, state))
                     }

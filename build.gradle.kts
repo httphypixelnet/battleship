@@ -25,7 +25,7 @@ dependencies {
 }
 javafx {
     version = "21"
-    modules = listOf("javafx.controls")
+    modules = listOf("javafx.controls", "javafx.fxml")
 }
 application {
     mainClass.set("doom.despair.MainKt")
@@ -64,7 +64,7 @@ tasks.test {
     useJUnitPlatform()
 }
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(17)
 }
 
 val generateBuildConstants by tasks.registering {

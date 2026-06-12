@@ -12,6 +12,7 @@ import doom.despair.ships.ShipType
 import doom.despair.ships.ShipType.Companion.shipLength
 import javafx.application.Application
 import javafx.application.Platform
+import javafx.fxml.FXMLLoader
 import javafx.event.ActionEvent
 import javafx.geometry.HPos
 import javafx.geometry.Insets
@@ -44,7 +45,7 @@ class BattleshipApp : Application() {
         val shipOrientationByCell: MutableMap<Pair<Int, Int>, Boolean> = HashMap(),
         var resultRecorded: Boolean = false
     )
-
+    private lateinit var state: GameStateDto
     private lateinit var stage: Stage
     private var session: SessionContext? = null
     private val boardSize = 10
@@ -62,7 +63,7 @@ class BattleshipApp : Application() {
         } catch (e: Exception) {
             localGameDiscovery = null
         }
-        showHomeScene()
+        showLobbyScene()
         stage.show()
     }
 
@@ -78,15 +79,11 @@ class BattleshipApp : Application() {
     private fun showHomeScene() {
         val nameField = TextField(userProfile.name)
         val addressField = TextField(userProfile.lastServerAddress)
-        val addressingHelp = Label("One game per server. Both players connect to the same server address.")
 
         val createButton = Button("Create Game")
         val joinButton = Button("Join Game")
-        val refreshLocalGamesButton = Button("Refresh Local Games")
         val joinSelectedLocalButton = Button("Join Selected Local Game")
         val localGamesList = ListView<LocalGameDiscovery.LocalGame>()
-        localGamesList.prefHeight = 120.0
-        localGamesList.maxHeight = 120.0
         val profileLabel = Label()
         profileLabel.style = "-fx-font-weight: bold;"
         val statusLabel = Label("Ready")
@@ -160,7 +157,25 @@ class BattleshipApp : Application() {
                 showError("Join Game failed", e.message ?: "Unknown error")
             }
         }
-
+        val j = Button("join local")
+        j.setOnAction {
+            val playerName = nameField.text.ifBlank { "Player" }
+            val serverAddress = "127.0.0.1:25567"
+            try {
+                userProfile = userProfile.copy(name = playerName, lastServerAddress = serverAddress)
+                profileStore.save(userProfile)
+                val client = Client(Player(playerName))
+                val remote = client.connect(serverAddress, selectedGameId)
+                selectedGameId = null
+                val joined = remote.joinGame(playerName)
+                val playerId = joined.playerId ?: throw IllegalStateException("Server did not return player id")
+                session = SessionContext(client, remote, playerId, playerName)
+                statusLabel.text = "Joined game on $serverAddress"
+                showPlacementScene()
+            } catch (e: Exception) {
+                showError("Join Game failed", e.message ?: "Unknown error")
+            }
+        }
         joinSelectedLocalButton.setOnAction {
             val selected = localGamesList.selectionModel.selectedItem
             if (selected == null) {
@@ -171,29 +186,96 @@ class BattleshipApp : Application() {
             selectedGameId = selected.gameId
             joinButton.fire()
         }
-        refreshLocalGamesButton.setOnAction {
-            refreshLocalGames()
-        }
+        val settingsButton = Button().apply {
+            graphic = ImageView(ImageLoader.loadImage("Ship_cog"))
 
-        val root = VBox(
-            10.0,
-            Label("Name"),
-            nameField,
-            profileLabel,
-            Label("Server address"),
-            addressField,
-            addressingHelp,
-            Label("Local games"),
-            localGamesList,
-            refreshLocalGamesButton,
-            joinSelectedLocalButton,
-            createButton,
-            joinButton,
-            statusLabel
-        )
-        root.padding = Insets(16.0)
-        stage.scene = Scene(root, 520.0, 520.0)
+        }
+//        val root = VBox(
+//            10.0,
+//            Label("Name"),
+//            nameField,
+//            profileLabel,
+////            Label("Server address"),
+////            addressField,
+////            addressingHelp,
+//            Label("Available games"),
+//            localGamesList,
+//            createButton
+//            statusLabel
+//        )
+
+//        root.padding = Insets(16.0)
+//        stage.scene = Scene(root, 520.0, 520.0)
+
         refreshLocalGames()
+    }
+
+    private fun showLobbyScene() {
+        val loader = FXMLLoader(javaClass.getResource("/lobby.fxml"))
+        val root = loader.load<Any>()
+        val controller = loader.getController<LobbyController>()
+        controller.setApp(this)
+        controller.setLocalGameDiscovery(localGameDiscovery)
+        stage.scene = Scene(root as? javafx.scene.Parent ?: error("Root is not a Parent"))
+    }
+
+    fun onCreateGame() {
+        val playerName = userProfile.name
+        val serverAddress = "127.0.0.1:25567"
+        try {
+            userProfile = userProfile.copy(lastServerAddress = serverAddress)
+            profileStore.save(userProfile)
+            if (isLocalAddress(serverAddress)) {
+                EmbeddedServerManager.startIfNeeded()
+            }
+            val client = Client(Player(playerName))
+            val remote = client.connect(serverAddress)
+            val created = remote.createGame(playerName)
+            val playerId = created.playerId ?: throw IllegalStateException("Server did not return player id")
+            session = SessionContext(client, remote, playerId, playerName)
+            showPlacementScene()
+        } catch (e: Exception) {
+            showError("Create Game failed", e.message ?: "Unknown error")
+        }
+    }
+
+    fun onJoinById(gameId: String) {
+        val localGame = localGameDiscovery?.discover(2000)?.find { it.gameId == gameId }
+        if (localGame != null) {
+            joinLocalGame(localGame)
+            return
+        }
+        val playerName = userProfile.name
+        val serverAddress = userProfile.lastServerAddress
+        try {
+            val client = Client(Player(playerName))
+            val remote = client.connect(serverAddress, gameId)
+            val joined = remote.joinGame(playerName)
+            val playerId = joined.playerId ?: throw IllegalStateException("Server did not return player id")
+            session = SessionContext(client, remote, playerId, playerName)
+            showPlacementScene()
+        } catch (e: Exception) {
+            showError("Join Game failed", e.message ?: "Unknown error")
+        }
+    }
+
+    fun joinLocalGame(game: LocalGameDiscovery.LocalGame) {
+        val playerName = userProfile.name
+        try {
+            val client = Client(Player(playerName))
+            val remote = client.connect(game.address, game.gameId)
+            val joined = remote.joinGame(playerName)
+            val playerId = joined.playerId ?: throw IllegalStateException("Server did not return player id")
+            session = SessionContext(client, remote, playerId, playerName)
+            showPlacementScene()
+        } catch (e: Exception) {
+            showError("Join Game failed", e.message ?: "Unknown error")
+        }
+    }
+
+    fun onSettings() {
+        val profile = userProfile
+        showError("Settings", "Player: ${profile.name}\nWins: ${profile.wins}\nLosses: ${profile.losses}")
     }
 
     private fun showPlacementScene() {
@@ -229,6 +311,7 @@ class BattleshipApp : Application() {
 
         fun applyState(state: GameStateDto) {
             latestState = state
+            this.state = state
             stateLabel.text =
                 if (state.playerShipsRemainingToPlace.isNotEmpty()) {
                     "Place remaining ships: ${state.playerShipsRemainingToPlace.joinToString(", ")}"
@@ -293,6 +376,7 @@ class BattleshipApp : Application() {
                 if (current == null || current.playerId != state.playerId) {
                     return@runLater
                 }
+
                 applyState(state)
             }
         }
@@ -318,7 +402,10 @@ class BattleshipApp : Application() {
         val active = session ?: return
         val stateLabel = Label()
         val playerGrid = createBoardGrid(clickable = false)
+        var pendingAttack: Pair<Int, Int>? = null
+
         val opponentGrid = createBoardGrid(clickable = true, onClick = { x, y, ev ->
+            pendingAttack = x to y
             try {
                 val result = active.remote.fireShot(active.playerId, x, y)
                 stateLabel.text = buildString {
@@ -330,6 +417,17 @@ class BattleshipApp : Application() {
                 showError("Fire failed", e.message ?: "Unknown error")
             }
         })
+        val onBeforeBoardUpdate: (GridPane, Int, Int, () -> Unit) -> Unit = { board, x, y, next ->
+            run {
+                val target = board.children
+                    .filterIsInstance<Button>()
+                    .firstOrNull { GridPane.getColumnIndex(it) == x && GridPane.getRowIndex(it) == y }
+                    ?: return@run
+                val children = (target.graphic as StackPane).children
+                val timeline = ImageLoader.getAnimation("Attack", 3, children[children.size-1] as ImageView, next)
+                timeline.play()
+            }
+        }
         fun applyState(state: GameStateDto) {
             updateBattleUi(stateLabel, playerGrid, opponentGrid, state, active.shipOrientationByCell)
             if (state.winnerPlayerId != null) {
@@ -342,7 +440,16 @@ class BattleshipApp : Application() {
                 if (current == null || current.playerId != state.playerId) {
                     return@runLater
                 }
-                applyState(state)
+                val attack = pendingAttack
+                if (attack != null) {
+                    pendingAttack = null
+                    onBeforeBoardUpdate(opponentGrid, attack.first, attack.second) {
+                        applyState(state)
+                        println("after state apply")
+                    }
+                } else {
+                    applyState(state)
+                }
             }
         }
         try {
@@ -387,7 +494,7 @@ class BattleshipApp : Application() {
             active.remote.setStateListener(null)
             active.client.disconnect()
             session = null
-            showHomeScene()
+            showLobbyScene()
         }
         val root = VBox(12.0, Label(title), Label("Game is complete."), backButton)
         root.padding = Insets(20.0)
@@ -477,23 +584,27 @@ class BattleshipApp : Application() {
                 }
 
                 CellState.SHIP -> {
-                    val isHorizontal = shipOrientationByCell[cell.x to cell.y] ?: true
+                    val isHorizontal = cell.horizontal ?: shipOrientationByCell[cell.x to cell.y] ?: true
                     target.graphic =
                         ImageLoader.getImageView(
                             cell.shipType ?: throw IllegalStateException("Missing ship type"),
                             cell.segment ?: throw IllegalStateException("Missing ship segment"),
-                            isHorizontal
+                            isHorizontal,
+                            false
                         )
                 }
 
                 CellState.HIT -> {
-                    target.style = "-fx-background-color: #c0392b;"
-                    target.text = "X"
+                    val shipType = cell.shipType
+                    val segment = cell.segment
+                    if (shipType != null && segment != null) {
+                        val isHorizontal = cell.horizontal ?: shipOrientationByCell[cell.x to cell.y] ?: true
+                        target.graphic = ImageLoader.getImageView(shipType, segment, isHorizontal, true)
+                    }
                 }
 
                 CellState.MISS -> {
-                    target.style = "-fx-background-color: #95a5a6;"
-                    target.text = "o"
+                    (target.graphic as StackPane).children.add(ImageView(ImageLoader.loadImage("Miss", 5)))
                 }
             }
         }
@@ -528,14 +639,15 @@ class BattleshipApp : Application() {
             }
             cells.add(x to y)
         }
-//        val style = if (valid) "-fx-background-color: #27ae60; -fx-text-fill: #ffffff;" else "-fx-background-color: #e74c3c; -fx-text-fill: #ffffff;"
-        for ((x, y) in cells) {
+        for ((i, cell) in cells.withIndex()) {
+            val (x, y) = cell
             if (x !in 0 until boardSize || y !in 0 until boardSize) {
                 continue
             }
             val target = getCellButton(grid, x, y) ?: continue
-//            target.style = style
-//            target.text = "P"
+            val shipSegment = ImageLoader.getImageView(shipType, i + 1, horizontal, false, 0.7)
+            val color = ImageView(ImageLoader.loadImage(if (valid) "Green" else "Red", 5)).apply { opacity = 0.2 }
+            target.graphic = StackPane(shipSegment, color)
         }
     }
 
